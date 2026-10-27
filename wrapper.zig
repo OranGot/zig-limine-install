@@ -11,15 +11,16 @@ fn usage(self_exe: [:0]const u8) u8 {
     return 1;
 }
 
-pub fn main() !u8 {
+pub fn main(init: std.process.Init) !u8 {
+    const io = init.io;
     // we link libc so we can use std.os.argv but we'll use ArgIterator anyway
     var arena: std.heap.ArenaAllocator = .init(std.heap.smp_allocator);
     defer arena.deinit();
     const gpa = arena.allocator();
+    var args = init.minimal.args.iterate();
+    // var args: std.process.ArgIterator = try .initWithAllocator(gpa);
 
-    var args: std.process.ArgIterator = try .initWithAllocator(gpa);
-
-    var passthruargs: std.ArrayListUnmanaged([*:0]const u8) = .{};
+    var passthruargs = std.ArrayList([*:0]const u8).empty;
     try passthruargs.appendSlice(gpa, &.{ "limine", "bios-install" });
 
     var outfile: ?[:0]const u8 = null;
@@ -49,9 +50,8 @@ pub fn main() !u8 {
     if (partidx) |p| {
         passthruargs.appendAssumeCapacity(p);
     }
-
-    const d = std.fs.cwd();
-    try d.copyFile(inf, d, of, .{});
+    const d = std.Io.Dir.cwd();
+    try d.copyFile(inf, d, of, io, .{});
     const a = passthruargs.items;
     return @intCast(limine_main(@intCast(a.len), a.ptr));
 }
